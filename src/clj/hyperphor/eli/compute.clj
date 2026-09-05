@@ -4,14 +4,20 @@
   template/persona-set config, not a separate code path."
   (:require [hyperphor.ellum.core :as llm]))
 
+;; Same brevity instruction pimento's own ELI used (pimento/openai.clj's
+;; explain-term :instructions), minus its cancer-immunotherapy framing --
+;; that's domain content and doesn't belong in a general compute step.
+(def default-system-prompt
+  "Keep responses brief and omit introductions and calls to action.")
+
 (defmulti compute-cell
   "kind: dispatch keyword (:llm for now). req: kind-specific map.
   Returns the cell's text value, or throws."
   (fn [kind _req] kind))
 
 (defmethod compute-cell :llm
-  [_ {:keys [prompt provider model]}]
-  (llm/query provider prompt :model model))
+  [_ {:keys [prompt provider model system] :or {system default-system-prompt}}]
+  (llm/query provider prompt :model model :system system))
 
 (defmethod compute-cell :default
   [kind _req]

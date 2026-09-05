@@ -6,6 +6,7 @@
   arbitrary {{row}}/{{col}} string, per design.md §1/§7."
   (:require [clojure.string :as str]))
 
+;;; TODO in config
 (def default-template "Explain {{row}} to {{col}}.")
 
 (defn render-template
