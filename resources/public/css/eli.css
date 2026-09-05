@@ -1,0 +1,83 @@
+/* ELI / knowledge-spreadsheet grid (design/design.md §5) */
+
+.eli-app {
+  padding: 12px 20px;
+}
+
+.ks-toolbar {
+  margin-bottom: 8px;
+}
+
+.ks-toolbar button {
+  margin-right: 8px;
+}
+
+.ks-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.ks-table th,
+.ks-table td {
+  border: 1px solid #ccc;
+  padding: 6px 8px;
+  vertical-align: top;
+  text-align: left;
+}
+
+.ks-col-header,
+.ks-row-header {
+  background: #f5f5f5;
+  min-width: 140px;
+}
+
+.ks-header-icon {
+  font-size: 1.2em;
+}
+
+.ks-col-header input,
+.ks-row-header input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-weight: bold;
+}
+
+.ks-header-actions {
+  font-size: 0.8em;
+  opacity: 0.6;
+}
+
+.ks-header-actions a {
+  margin-right: 6px;
+  cursor: pointer;
+}
+
+.ks-cell {
+  max-width: 320px;
+  cursor: pointer;
+}
+
+.ks-cell.ks-empty {
+  color: #999;
+  font-style: italic;
+}
+
+.ks-cell.ks-stale {
+  opacity: 0.5;
+}
+
+.ks-cell.ks-error {
+  color: #b00020;
+}
+
+.ks-cell.ks-pending .ks-spinner {
+  display: inline-block;
+  animation: ks-spin 1s linear infinite;
+}
+
+@keyframes ks-spin {
+  from { opacity: 0.3; }
+  50%  { opacity: 1; }
+  to   { opacity: 0.3; }
+}

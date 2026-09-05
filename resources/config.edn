@@ -1,0 +1,13 @@
+;;; Way config. Profiles: :dev :server :default (see hyperphor.way.config).
+
+{:app-title "ELI"
+ :dev-mode #profile {:dev true :default false}
+ :app-main "hyperphor.eli.frontend.core.init"
+ :port #env PORT
+ :css ["/css/eli.css"]
+
+ ;; ANTHROPIC_API_KEY / OPENAI_API_KEY are read directly by com.hyperphor/ellum
+ ;; (see hyperphor.ellum.providers.{anthropic,openai}) -- nothing app-specific
+ ;; to configure here for M1's single server-side key. No :basic-auth-creds /
+ ;; :oauth yet -- M1 has no auth, no persistence, nothing to protect.
+ }

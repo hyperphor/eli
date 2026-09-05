@@ -1,0 +1,27 @@
+{
+    "name": "eli",
+    "version": "0.1.0",
+    "description": "ELI: a knowledge spreadsheet -- user-defined rows x columns, cells filled in by an LLM",
+    "dependencies": {
+        "katex": "0.12.0",
+        "markdown-it": "14.3.1",
+        "markdown-it-block-image": "0.0.3",
+        "markdown-it-footnote": "3.0.3",
+        "markdown-it-texmath": "1.0.0",
+        "markdown-it-toc-done-right": "4.2.0",
+        "punycode": "2.1.1",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
+    },
+    "devDependencies": {
+        "shadow-cljs": "3.1.8"
+    },
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/hyperphor/eli.git"
+    },
+    "license": "ISC"
+}
