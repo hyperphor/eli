@@ -23,11 +23,21 @@
   [:div.site-hero
    [:h2 "ELI — Explain Like I'm..."]])
 
+(defn- not-done?
+  "True unless cells already has a :done value for k -- bulk fills (row/col/
+  all) skip these so they don't redo cells filled (or hand-edited) already;
+  a single-cell click still recomputes explicitly, see on-fill-cell below."
+  [cells k]
+  (not= :done (get-in cells [k :status])))
+
 (defn app-ui
   []
   (when-let [sheet @(rf/subscribe [:eli/sheet])]
-    (let [{:keys [row-defs col-defs]} sheet
-          all-items (vec (for [r row-defs c col-defs] [(:id r) (:id c)]))]
+    (let [{:keys [row-defs col-defs cells]} sheet
+          all-items (vec (for [r row-defs c col-defs
+                                :let [k [(:id r) (:id c)]]
+                                :when (not-done? cells k)]
+                            k))]
       [:div.eli-app
        [site-header]
        [grid/grid
@@ -41,13 +51,22 @@
          :on-add-col #(rf/dispatch [:eli/add-col])
          :on-remove-row #(rf/dispatch [:eli/remove-row %])
          :on-remove-col #(rf/dispatch [:eli/remove-col %])
+         ;; Explicit single-cell click: always (re)compute, even if :done.
          :on-fill-cell #(rf/dispatch [:eli/queue-fill [[%1 %2]]])
          :on-fill-row (fn [row-id]
-                        (when-let [items (confirmed-items (vec (for [c col-defs] [row-id (:id c)])))]
-                          (rf/dispatch [:eli/queue-fill items])))
+                        (let [items (vec (for [c col-defs
+                                                :let [k [row-id (:id c)]]
+                                                :when (not-done? cells k)]
+                                            k))]
+                          (when-let [items (confirmed-items items)]
+                            (rf/dispatch [:eli/queue-fill items]))))
          :on-fill-col (fn [col-id]
-                        (when-let [items (confirmed-items (vec (for [r row-defs] [(:id r) col-id])))]
-                          (rf/dispatch [:eli/queue-fill items])))
+                        (let [items (vec (for [r row-defs
+                                                :let [k [(:id r) col-id]]
+                                                :when (not-done? cells k)]
+                                            k))]
+                          (when-let [items (confirmed-items items)]
+                            (rf/dispatch [:eli/queue-fill items]))))
          :on-fill-all (fn []
                         (when-let [items (confirmed-items all-items)]
                           (rf/dispatch [:eli/queue-fill items])))}]])))
