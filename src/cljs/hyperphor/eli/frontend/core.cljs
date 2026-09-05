@@ -32,8 +32,11 @@
        [site-header]
        [grid/grid
         {:sheet sheet
-         :on-row-label #(rf/dispatch [:eli/set-row-label %1 %2])
-         :on-col-label #(rf/dispatch [:eli/set-col-label %1 %2])
+         ;; dispatch-sync, not dispatch: :value is bound to app-db (a
+         ;; controlled input), so the db update must land before React
+         ;; re-renders or the caret jumps to the end on every keystroke.
+         :on-row-label #(rf/dispatch-sync [:eli/set-row-label %1 %2])
+         :on-col-label #(rf/dispatch-sync [:eli/set-col-label %1 %2])
          :on-add-row #(rf/dispatch [:eli/add-row])
          :on-add-col #(rf/dispatch [:eli/add-col])
          :on-remove-row #(rf/dispatch [:eli/remove-row %])

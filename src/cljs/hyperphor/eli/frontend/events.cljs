@@ -114,7 +114,7 @@
          in-flight (:in-flight db 0)]
      (if (and (seq queue) (< in-flight max-concurrency))
        (let [[row-id col-id] (first queue)]
-         {:db (-> db (update :fill-queue subvec 1) (update :in-flight inc))
+         {:db (-> db (update :fill-queue subvec 1) (update :in-flight (fnil inc 0)))
           :dispatch [:eli/request-cell row-id col-id]})
        {}))))
 
@@ -147,7 +147,7 @@
  (fn [{:keys [db]} [_ row-id col-id value]]
    {:db (-> db
             (assoc-in [:sheet :cells [row-id col-id]] {:status :done :value value})
-            (update :in-flight dec))
+            (update :in-flight (fnil dec 0)))
     :dispatch [:eli/pump]}))
 
 (rf/reg-event-fx
@@ -157,5 +157,5 @@
             (assoc-in [:sheet :cells [row-id col-id]]
                       {:status :error
                        :error (or (get-in error [:response :error]) "request failed")})
-            (update :in-flight dec))
+            (update :in-flight (fnil dec 0)))
     :dispatch [:eli/pump]}))

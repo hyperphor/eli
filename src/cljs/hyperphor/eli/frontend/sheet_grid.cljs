@@ -5,6 +5,9 @@
   `way` later (per design.md §5/first-cut.md's reusability note) is a
   relocation, not a rewrite.")
 
+;; Invoked as [cell-view cell on-click] (a hiccup element, not a plain call)
+;; so `for`'s ^{:key ...} metadata -- attached to that literal vector, not to
+;; whatever a called fn happens to return -- actually reaches reagent.
 (defn- cell-view
   [{:keys [status value error]} on-click]
   (case status
@@ -54,5 +57,5 @@
             [:a {:on-click #(on-remove-row id)} "✕"]]]
           (for [{col-id :id} col-defs]
             ^{:key col-id}
-            (cell-view (get cells [id col-id] {})
-                       #(on-fill-cell id col-id)))])]]]))
+            [cell-view (get cells [id col-id] {})
+             #(on-fill-cell id col-id)])])]]]))
