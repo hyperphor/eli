@@ -58,6 +58,22 @@
   cursor: pointer;
 }
 
+/* Cell values are rendered markdown (hyperphor.way.markdown) -- tighten its
+   default block margins for a table cell, same pattern as okc's .log-md. */
+.ks-cell p {
+  margin: 0 0 0.25em 0;
+}
+
+.ks-cell p:last-child {
+  margin-bottom: 0;
+}
+
+.ks-cell ul,
+.ks-cell ol {
+  margin: 0 0 0.25em 0;
+  padding-left: 1.2em;
+}
+
 .ks-cell.ks-empty {
   color: #999;
   font-style: italic;

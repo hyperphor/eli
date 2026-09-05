@@ -10,13 +10,14 @@
 ;; the provider's rate limit (design.md §6 step 2).
 (def max-concurrency 4)
 
+;;; TODO should probably be in config? Not here in any case
 (defn- default-sheet
   "A small seed sheet -- ELI's own persona-explainer default (design.md §8's
   persona-set idea, hardcoded here until templates/persona-sets exist)."
   []
   {:title "ELI"
    :template model/default-template
-   :default-model {:provider :anthropic :model nil}
+   :default-model {:provider :openai :model "gpt-4o"}
    :row-defs [{:id :r1 :label "KRAS oncogene"}
               {:id :r2 :label "sgRNA"}]
    :col-defs [{:id :c1 :label "a five-year old" :icon "🧒"}

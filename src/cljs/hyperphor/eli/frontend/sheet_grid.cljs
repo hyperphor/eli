@@ -3,16 +3,19 @@
   (design/design.md §4-5). Pure presentational component -- takes sheet data
   and callback fns as props, no direct re-frame dependency, so moving it into
   `way` later (per design.md §5/first-cut.md's reusability note) is a
-  relocation, not a rewrite.")
+  relocation, not a rewrite."
+  (:require [hyperphor.way.markdown :as md]))
 
 ;; Invoked as [cell-view cell on-click] (a hiccup element, not a plain call)
 ;; so `for`'s ^{:key ...} metadata -- attached to that literal vector, not to
 ;; whatever a called fn happens to return -- actually reaches reagent.
+;; :done/:stale values are LLM markdown -- rendered via way's existing
+;; markdown renderer (same (md/render text) pattern okc/nlq use), not raw text.
 (defn- cell-view
   [{:keys [status value error]} on-click]
   (case status
-    :done    [:td.ks-cell.ks-done {:on-click on-click :title "Click to recompute"} value]
-    :stale   [:td.ks-cell.ks-stale {:on-click on-click :title "Stale -- click to recompute"} value]
+    :done    [:td.ks-cell.ks-done {:on-click on-click :title "Click to recompute"} (md/render value)]
+    :stale   [:td.ks-cell.ks-stale {:on-click on-click :title "Stale -- click to recompute"} (md/render value)]
     :pending [:td.ks-cell.ks-pending [:span.ks-spinner "…"]]
     :error   [:td.ks-cell.ks-error {:on-click on-click :title error} "⚠ retry"]
     [:td.ks-cell.ks-empty {:on-click on-click} [:span.ks-fill-hint "fill"]]))
