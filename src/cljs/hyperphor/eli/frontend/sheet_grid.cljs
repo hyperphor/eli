@@ -39,12 +39,16 @@
       [:thead
        [:tr
         [:th]
-        (for [{:keys [id label icon]} col-defs]
+        (for [{:keys [id label icon model-override]} col-defs]
           ^{:key id}
           [:th.ks-col-header
            [:div.ks-header-icon icon]
            [:input {:type "text" :value label
                     :on-change #(on-col-label id (-> % .-target .-value))}]
+           ;; Effective model as a caption when this column overrides the
+           ;; sheet default (design.md §8) -- e.g. a model-comparator sheet.
+           (when model-override
+             [:div.ks-header-model (:model model-override)])
            [:div.ks-header-actions
             [:a {:on-click #(on-fill-col id)} "fill"]
             [:a {:on-click #(on-remove-col id)} "✕"]]])]]

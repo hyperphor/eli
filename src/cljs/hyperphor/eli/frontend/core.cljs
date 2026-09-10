@@ -18,10 +18,26 @@
       items)
     items))
 
+(defn- sheet-chooser
+  "Dropdown over sample-sheets.cljs's registry; confirms before switching
+  away from a sheet that has filled cells, since sheets aren't persisted."
+  [has-filled-cells?]
+  (let [current @(rf/subscribe [:eli/sample-id])]
+    [:select.ks-sheet-chooser
+     {:value (name current)
+      :on-change (fn [e]
+                   (let [id (keyword (-> e .-target .-value))]
+                     (when (or (not has-filled-cells?)
+                               (js/confirm "Switch sample sheets? This discards the current sheet."))
+                       (rf/dispatch [:eli/load-sheet id]))))}
+     (for [{:keys [id label]} @(rf/subscribe [:eli/sample-sheets])]
+       ^{:key id} [:option {:value (name id)} label])]))
+
 (defn site-header
-  []
+  [has-filled-cells?]
   [:div.site-hero
-   [:h2 "ELI — Explain Like I'm..."]])
+   [:h2 "ELI — Explain Like I'm..."]
+   [sheet-chooser has-filled-cells?]])
 
 (defn- not-done?
   "True unless cells already has a :done value for k -- bulk fills (row/col/
@@ -39,7 +55,7 @@
                                 :when (not-done? cells k)]
                             k))]
       [:div.eli-app
-       [site-header]
+       [site-header (some #(= :done (:status %)) (vals cells))]
        [grid/grid
         {:sheet sheet
          ;; dispatch-sync, not dispatch: :value is bound to app-db (a

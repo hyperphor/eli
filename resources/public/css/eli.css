@@ -4,6 +4,12 @@
   padding: 12px 20px;
 }
 
+.site-hero {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
 .ks-toolbar {
   margin-bottom: 8px;
 }
@@ -41,6 +47,12 @@
   border: none;
   background: transparent;
   font-weight: bold;
+}
+
+.ks-header-model {
+  font-size: 0.75em;
+  font-weight: normal;
+  opacity: 0.6;
 }
 
 .ks-header-actions {

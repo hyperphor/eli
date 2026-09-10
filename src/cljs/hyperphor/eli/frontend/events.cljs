@@ -4,35 +4,39 @@
   worker pool over the /api/ks/cell endpoint."
   (:require [re-frame.core :as rf]
             [hyperphor.way.api :as api]
-            [hyperphor.eli.model :as model]))
+            [hyperphor.eli.frontend.sample-sheets :as samples]))
 
 ;; In-flight cap: keeps a "fill all" from firing R*C requests at once against
 ;; the provider's rate limit (design.md §6 step 2).
 (def max-concurrency 4)
 
-;;; TODO should probably be in config? Not here in any case
-(defn- default-sheet
-  "A small seed sheet -- ELI's own persona-explainer default (design.md §8's
-  persona-set idea, hardcoded here until templates/persona-sets exist)."
-  []
-  {:title "ELI"
-   :template model/default-template
-   :default-model {:provider :openai :model "gpt-4o"}
-   :row-defs [{:id :r1 :label "KRAS oncogene"}
-              {:id :r2 :label "sgRNA"}]
-   :col-defs [{:id :c1 :label "a five-year old" :icon "🧒"}
-              {:id :c2 :label "an intelligent layman" :icon "🧑"}]
-   :cells {}
-   :next-id 3})
+(def default-sample-id (:id (first samples/sheets)))
 
 (rf/reg-event-db
  :eli/init-sheet
  (fn [db _]
-   (assoc db :sheet (default-sheet))))
+   (-> db
+       (assoc :sheet (samples/by-id default-sample-id))
+       (assoc :sample-id default-sample-id))))
+
+(rf/reg-event-db
+ :eli/load-sheet
+ (fn [db [_ sample-id]]
+   (-> db
+       (assoc :sheet (samples/by-id sample-id))
+       (assoc :sample-id sample-id))))
 
 (rf/reg-sub
  :eli/sheet
  (fn [db _] (:sheet db)))
+
+(rf/reg-sub
+ :eli/sample-sheets
+ (fn [_ _] (mapv #(select-keys % [:id :label]) samples/sheets)))
+
+(rf/reg-sub
+ :eli/sample-id
+ (fn [db _] (:sample-id db)))
 
 ;;; ── Header editing ────────────────────────────────────────────────────────
 
