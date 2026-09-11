@@ -20,21 +20,34 @@
     :error   [:td.ks-cell.ks-error {:on-click on-click :title error} "⚠ retry"]
     [:td.ks-cell.ks-empty {:on-click on-click} [:span.ks-fill-hint "fill"]]))
 
+(defn- template-editor
+  "Collapsed by default -- editing the template is an advanced move (it
+  affects every cell at once) rather than a basic one, so it stays tucked
+  under a <summary> instead of sitting next to the row/column buttons."
+  [template on-set-template]
+  [:details.ks-template-editor
+   [:summary "Template"]
+   [:textarea.ks-template-input
+    {:value template
+     :on-change #(on-set-template (-> % .-target .-value))}]])
+
 (defn grid
-  "props: {:sheet {:row-defs :col-defs :cells}
+  "props: {:sheet {:row-defs :col-defs :cells :template}
            :on-row-label :on-col-label       [id label]
+           :on-set-template  [template]
            :on-add-row :on-add-col :on-fill-all  []
            :on-remove-row :on-remove-col :on-fill-row :on-fill-col  [id]
            :on-fill-cell  [row-id col-id]}"
-  [{:keys [sheet on-row-label on-col-label on-add-row on-add-col
+  [{:keys [sheet on-row-label on-col-label on-set-template on-add-row on-add-col
            on-remove-row on-remove-col on-fill-cell on-fill-row on-fill-col
            on-fill-all]}]
-  (let [{:keys [row-defs col-defs cells]} sheet]
+  (let [{:keys [row-defs col-defs cells template]} sheet]
     [:div.ks-grid
      [:div.ks-toolbar
       [:button {:on-click on-fill-all} "Fill all"]
       [:button {:on-click on-add-row} "+ row"]
-      [:button {:on-click on-add-col} "+ column"]]
+      [:button {:on-click on-add-col} "+ column"]
+      [template-editor template on-set-template]]
      [:table.ks-table
       [:thead
        [:tr

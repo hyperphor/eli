@@ -13,6 +13,7 @@
   "Substitute the current row/col labels into template's {{row}}/{{col}}
   placeholders. Resolved at compute time, not stored with the cell."
   [template row-label col-label]
+  ;; TODO ugh use u/tx
   (-> template
-      (str/replace "{{row}}" (str row-label))
+      (str/replace "{{row}}" (str row-label)) 
       (str/replace "{{col}}" (str col-label))))

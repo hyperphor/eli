@@ -66,6 +66,21 @@
        (update-in [:sheet :col-defs] relabel col-id label)
        (update-in [:sheet :cells] mark-stale 1 col-id))))
 
+(defn- mark-done-cells-stale
+  "Template changes affect every cell, but only :done ones have a value worth
+  re-marking :stale -- leaves already-:stale/:error/empty cells alone."
+  [cells]
+  (into {} (map (fn [[k cell]]
+                  [k (if (= :done (:status cell)) (assoc cell :status :stale) cell)]))
+        cells))
+
+(rf/reg-event-db
+ :eli/set-template
+ (fn [db [_ template]]
+   (-> db
+       (assoc-in [:sheet :template] template)
+       (update-in [:sheet :cells] mark-done-cells-stale))))
+
 (rf/reg-event-db
  :eli/add-row
  (fn [db _]
