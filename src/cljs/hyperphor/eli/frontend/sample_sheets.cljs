@@ -51,12 +51,27 @@
    :cells {}
    :next-id 4})
 
+(def style-transfer
+  "Same text rewritten in different authors' styles -- columns are authors
+  rather than personas or languages, a third demo of the template axis."
+  {:title "Style transfer"
+   :template "Rewrite the following text in the voice and style of {{col}}, keeping the meaning intact:\n\n\"{{row}}\""
+   :default-model {:provider :anthropic :model "claude-sonnet-5"}
+   :row-defs [{:id :r1 :label "climate change is coming and we are unprepared"}
+              {:id :r2 :label "we are out of paperclips please order some"}]
+   :col-defs [{:id :c1 :label "Cormac McCarthy" :icon "🤠"}
+              {:id :c2 :label "Virginia Woolf" :icon "🌊"}
+              {:id :c3 :label "Edgar Allan Poe" :icon "🐦‍⬛"}]
+   :cells {}
+   :next-id 4})
+
 (def sheets
   "Ordered [{:id :label :sheet}] registry backing the sheet chooser. First
   entry is the one :eli/init-sheet loads."
   [{:id :eli :label "ELI — persona explainer" :sheet eli-explainer}
    {:id :model-comparator :label "Model / provider comparator" :sheet model-comparator}
-   {:id :translations :label "Translations" :sheet translations}])
+   {:id :translations :label "Translations" :sheet translations}
+   {:id :style-transfer :label "Style transfer" :sheet style-transfer}])
 
 (defn by-id [id]
   (:sheet (some #(when (= (:id %) id) %) sheets)))
