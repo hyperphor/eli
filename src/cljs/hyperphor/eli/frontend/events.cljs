@@ -3,6 +3,7 @@
   lives at db's :sheet key; :fill-queue/:in-flight drive a bounded-concurrency
   worker pool over the /api/ks/cell endpoint."
   (:require [re-frame.core :as rf]
+            [clojure.string :as str]
             [hyperphor.way.api :as api]
             [hyperphor.eli.frontend.sample-sheets :as samples]))
 
@@ -81,21 +82,27 @@
        (assoc-in [:sheet :template] template)
        (update-in [:sheet :cells] mark-done-cells-stale))))
 
+(defn- add-row-with-label
+  [db label]
+  (let [id (keyword (str "r" (get-in db [:sheet :next-id])))]
+    (-> db
+        (update-in [:sheet :row-defs] conj {:id id :label label})
+        (update-in [:sheet :next-id] inc))))
+
+(defn- add-col-with-label
+  [db label]
+  (let [id (keyword (str "c" (get-in db [:sheet :next-id])))]
+    (-> db
+        (update-in [:sheet :col-defs] conj {:id id :label label :icon "👤"})
+        (update-in [:sheet :next-id] inc))))
+
 (rf/reg-event-db
  :eli/add-row
- (fn [db _]
-   (let [id (keyword (str "r" (get-in db [:sheet :next-id])))]
-     (-> db
-         (update-in [:sheet :row-defs] conj {:id id :label "New term"})
-         (update-in [:sheet :next-id] inc)))))
+ (fn [db _] (add-row-with-label db "New term")))
 
 (rf/reg-event-db
  :eli/add-col
- (fn [db _]
-   (let [id (keyword (str "c" (get-in db [:sheet :next-id])))]
-     (-> db
-         (update-in [:sheet :col-defs] conj {:id id :label "New persona" :icon "👤"})
-         (update-in [:sheet :next-id] inc)))))
+ (fn [db _] (add-col-with-label db "New persona")))
 
 (rf/reg-event-db
  :eli/remove-row
@@ -179,3 +186,60 @@
                        :error (or (get-in error [:response :error]) "request failed")})
             (update :in-flight (fnil dec 0)))
     :dispatch [:eli/pump]}))
+
+;;; ── Diversify (extend rows/cols with an LLM-suggested new one) ──────────────
+
+(rf/reg-fx
+ ::fetch-diversify
+ (fn [{:keys [labels n on-success on-failure]}]
+   (api/api-get "/ks/diversify"
+                {:params {:labels (str/join "|" labels) :n n}
+                 ;; diversify-set returns nil when the LLM's response didn't
+                 ;; parse as JSON -- treat that as a failure, not a row/col
+                 ;; with a nil label.
+                 :handler #(if-let [label (first (:values %))]
+                             (rf/dispatch (conj on-success label))
+                             (rf/dispatch (conj on-failure {:reason "no result"})))
+                 :error-handler #(rf/dispatch (conj on-failure %))})))
+
+(rf/reg-sub
+ :eli/diversifying-row?
+ (fn [db _] (boolean (:diversifying-row? db))))
+
+(rf/reg-sub
+ :eli/diversifying-col?
+ (fn [db _] (boolean (:diversifying-col? db))))
+
+(rf/reg-event-fx
+ :eli/diversify-row
+ (fn [{:keys [db]} _]
+   {:db (assoc db :diversifying-row? true)
+    ::fetch-diversify {:labels (map :label (get-in db [:sheet :row-defs]))
+                        :n 1
+                        :on-success [:eli/diversify-row-done]
+                        :on-failure [:eli/diversify-failed :row]}}))
+
+(rf/reg-event-db
+ :eli/diversify-row-done
+ (fn [db [_ label]]
+   (-> db (add-row-with-label label) (assoc :diversifying-row? false))))
+
+(rf/reg-event-fx
+ :eli/diversify-col
+ (fn [{:keys [db]} _]
+   {:db (assoc db :diversifying-col? true)
+    ::fetch-diversify {:labels (map :label (get-in db [:sheet :col-defs]))
+                        :n 1
+                        :on-success [:eli/diversify-col-done]
+                        :on-failure [:eli/diversify-failed :col]}}))
+
+(rf/reg-event-db
+ :eli/diversify-col-done
+ (fn [db [_ label]]
+   (-> db (add-col-with-label label) (assoc :diversifying-col? false))))
+
+(rf/reg-event-fx
+ :eli/diversify-failed
+ (fn [{:keys [db]} [_ which _error]]
+   {:db (assoc db (if (= which :row) :diversifying-row? :diversifying-col?) false)
+    :dispatch [:error "Couldn't diversify -- try again"]}))

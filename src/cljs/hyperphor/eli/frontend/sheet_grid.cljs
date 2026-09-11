@@ -36,9 +36,12 @@
            :on-row-label :on-col-label       [id label]
            :on-set-template  [template]
            :on-add-row :on-add-col :on-fill-all  []
+           :on-diversify-row :on-diversify-col  []
+           :diversifying-row? :diversifying-col?  bool
            :on-remove-row :on-remove-col :on-fill-row :on-fill-col  [id]
            :on-fill-cell  [row-id col-id]}"
   [{:keys [sheet on-row-label on-col-label on-set-template on-add-row on-add-col
+           on-diversify-row on-diversify-col diversifying-row? diversifying-col?
            on-remove-row on-remove-col on-fill-cell on-fill-row on-fill-col
            on-fill-all]}]
   (let [{:keys [row-defs col-defs cells template]} sheet]
@@ -46,7 +49,17 @@
      [:div.ks-toolbar
       [:button {:on-click on-fill-all} "Fill all"]
       [:button {:on-click on-add-row} "+ row"]
+      ;; Asks the LLM to extend the existing rows/columns with one new,
+      ;; maximally-diverse label (compute/diversify-set) instead of a blank
+      ;; placeholder -- e.g. more genes, more personas, in the spirit of the
+      ;; set already on the sheet.
+      [:button {:on-click on-diversify-row :disabled diversifying-row?
+                :title "Ask the LLM to suggest one more row like the existing ones"}
+       (if diversifying-row? "…" "✨ diversify rows")]
       [:button {:on-click on-add-col} "+ column"]
+      [:button {:on-click on-diversify-col :disabled diversifying-col?
+                :title "Ask the LLM to suggest one more column like the existing ones"}
+       (if diversifying-col? "…" "✨ diversify columns")]
       [template-editor template on-set-template]]
      [:table.ks-table
       [:thead

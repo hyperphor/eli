@@ -20,12 +20,22 @@
             :provider (keyword (if (str/blank? provider) "anthropic" provider))
             :model (when-not (str/blank? model) model)})})
 
+;;; "|" as a delimiter, not comma, since labels routinely contain commas
+;;; themselves ("KRAS oncogene, mutant" etc).
+(defn diversify-endpoint
+  "Extend an existing set of row/column labels with n new ones that fit the
+  set but maximize diversity (compute/diversify-set). Returns {:values [...]}."
+  [labels n]
+  {:values (compute/diversify-set (str/split labels #"\|") (or n 1))})
+
 (defroutes site-routes)
 
 (defroutes api-routes
   (context "/api/ks" []
     (GET "/cell" [row-label col-label template provider model]
-      (wh/content-response (cell-endpoint row-label col-label template provider model)))))
+      (wh/content-response (cell-endpoint row-label col-label template provider model)))
+    (GET "/diversify" [labels n]
+      (wh/content-response (diversify-endpoint labels (when-not (str/blank? n) (Integer/parseInt n)))))))
 
 ;;; Warning: do not `(def app ...)` -- config isn't necessarily loaded yet at
 ;;; compile time (same caveat as okc/nlq-aact's handler.clj).

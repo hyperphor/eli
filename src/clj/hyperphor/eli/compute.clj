@@ -26,14 +26,16 @@
   [kind _req]
   (throw (ex-info (str "Unknown compute-kind: " kind) {:kind kind})))
 
-;;; TODO not wired into anything yet
 (defn diversify-set
+  "Ask the LLM for n new elements that extend elts (row or column labels)
+  while maximizing diversity within the set. Returns a vector of new labels,
+  or nil if the response wasn't parseable JSON."
   [elts n]
   (let [elts (str/join ", " elts)]
     (-> (llm/query
          :openai
          (u/tx "extend this set with {{n}} new elements that fit the set but maximize diversity within it: {{elts}}  Return results as json vector, omit the original elements ")
          :model "gpt-4o"
-         :system "Keep responses brief and omit introductions and calls to action.")
+         :system default-system-prompt)
         llme/extract-json
         first)))

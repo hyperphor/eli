@@ -66,6 +66,10 @@
          :on-set-template #(rf/dispatch-sync [:eli/set-template %])
          :on-add-row #(rf/dispatch [:eli/add-row])
          :on-add-col #(rf/dispatch [:eli/add-col])
+         :on-diversify-row #(rf/dispatch [:eli/diversify-row])
+         :on-diversify-col #(rf/dispatch [:eli/diversify-col])
+         :diversifying-row? @(rf/subscribe [:eli/diversifying-row?])
+         :diversifying-col? @(rf/subscribe [:eli/diversifying-col?])
          :on-remove-row #(rf/dispatch [:eli/remove-row %])
          :on-remove-col #(rf/dispatch [:eli/remove-col %])
          ;; Explicit single-cell click: always (re)compute, even if :done.
