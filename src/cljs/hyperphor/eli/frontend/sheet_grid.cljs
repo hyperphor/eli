@@ -50,7 +50,7 @@
       [:button {:on-click on-fill-all} "Fill all"]
       [:button {:on-click on-add-row} "+ row"]
       ;; Asks the LLM to extend the existing rows/columns with one new,
-      ;; maximally-diverse label (compute/diversify-set) instead of a blank
+      ;; maximally-diverse label (ellum.terms/diversify-terms) instead of a blank
       ;; placeholder -- e.g. more genes, more personas, in the spirit of the
       ;; set already on the sheet.
       [:button {:on-click on-diversify-row :disabled diversifying-row?

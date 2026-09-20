@@ -2,10 +2,7 @@
   "Cell computation, dispatched by a column's :compute-kind (design/design.md §7).
   Only :llm is implemented -- ELI itself is just this method plus a seeded
   template/persona-set config, not a separate code path."
-  (:require [hyperphor.ellum.core :as llm]
-            [hyperphor.ellum.extract :as llme]
-            [clojure.string :as str]
-            [hyperphor.multitool.core :as u]))
+  (:require [hyperphor.ellum.core :as llm]))
 
 ;; Same brevity instruction pimento's own ELI used (pimento/openai.clj's
 ;; explain-term :instructions), minus its cancer-immunotherapy framing --
@@ -25,17 +22,3 @@
 (defmethod compute-cell :default
   [kind _req]
   (throw (ex-info (str "Unknown compute-kind: " kind) {:kind kind})))
-
-(defn diversify-set
-  "Ask the LLM for n new elements that extend elts (row or column labels)
-  while maximizing diversity within the set. Returns a vector of new labels,
-  or nil if the response wasn't parseable JSON."
-  [elts n]
-  (let [elts (str/join ", " elts)]
-    (-> (llm/query
-         :openai
-         (u/tx "extend this set with {{n}} new elements that fit the set but maximize diversity within it: {{elts}}  Return results as json vector, omit the original elements ")
-         :model "gpt-4o"
-         :system default-system-prompt)
-        llme/extract-json
-        first)))

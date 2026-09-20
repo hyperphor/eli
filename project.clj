@@ -8,7 +8,7 @@
   ;; only what eli's own code requires directly needs to be listed here.
   :dependencies [[org.clojure/clojure "1.12.5"]
                  [com.hyperphor/way "0.2.7"]
-                 [com.hyperphor/ellum "0.1.3"]
+                 [com.hyperphor/ellum "0.1.5"]
                  [com.taoensso/timbre "6.7.1"]
                  [environ "1.2.0"]
                  ;; Direct dep, NOT :dev-profile-only -- `lein uberjar` activates

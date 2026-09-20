@@ -194,7 +194,7 @@
  (fn [{:keys [labels n on-success on-failure]}]
    (api/api-get "/ks/diversify"
                 {:params {:labels (str/join "|" labels) :n n}
-                 ;; diversify-set returns nil when the LLM's response didn't
+                 ;; diversify-terms returns nil when the LLM's response didn't
                  ;; parse as JSON -- treat that as a failure, not a row/col
                  ;; with a nil label.
                  :handler #(if-let [label (first (:values %))]

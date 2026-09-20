@@ -3,7 +3,8 @@
             [compojure.core :refer [defroutes context GET]]
             [hyperphor.way.handler :as wh]
             [hyperphor.eli.model :as model]
-            [hyperphor.eli.compute :as compute]))
+            [hyperphor.eli.compute :as compute]
+            [hyperphor.ellum.terms :as terms]))
 
 ;;; GET, not POST -- matches the qbox-endpoint convention okc/nlq-aact already use
 ;;; for their own single LLM-backed API call (a query, not a state mutation; no
@@ -24,9 +25,9 @@
 ;;; themselves ("KRAS oncogene, mutant" etc).
 (defn diversify-endpoint
   "Extend an existing set of row/column labels with n new ones that fit the
-  set but maximize diversity (compute/diversify-set). Returns {:values [...]}."
+  set but maximize diversity (ellum.terms/diversify-terms). Returns {:values [...]}."
   [labels n]
-  {:values (compute/diversify-set (str/split labels #"\|") (or n 1))})
+  {:values (terms/diversify-terms (str/split labels #"\|") (or n 1))})
 
 (defroutes site-routes)
 
