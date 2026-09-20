@@ -82,6 +82,22 @@
        (assoc-in [:sheet :template] template)
        (update-in [:sheet :cells] mark-done-cells-stale))))
 
+(rf/reg-event-db
+ :eli/set-topic
+ (fn [db [_ topic]] (assoc-in db [:sheet :topic] topic)))
+
+(rf/reg-sub
+ :eli/topic
+ (fn [db _] (get-in db [:sheet :topic] "")))
+
+(rf/reg-event-db
+ :eli/set-term-count
+ (fn [db [_ n]] (assoc-in db [:sheet :term-count] n)))
+
+(rf/reg-sub
+ :eli/term-count
+ (fn [db _] (get-in db [:sheet :term-count] 10)))
+
 (defn- add-row-with-label
   [db label]
   (let [id (keyword (str "r" (get-in db [:sheet :next-id])))]
@@ -243,3 +259,78 @@
  (fn [{:keys [db]} [_ which _error]]
    {:db (assoc db (if (= which :row) :diversifying-row? :diversifying-col?) false)
     :dispatch [:error "Couldn't diversify -- try again"]}))
+
+;;; ── Topic-driven bulk generation (generate-terms/generate-personas) ─────────
+
+(rf/reg-fx
+ ::fetch-values
+ (fn [{:keys [url params on-success on-failure]}]
+   (api/api-get url
+                {:params params
+                 ;; Same "empty/unparseable LLM response is a failure" contract
+                 ;; as ::fetch-diversify, just over a whole vector of labels.
+                 :handler #(if-let [values (seq (:values %))]
+                             (rf/dispatch (conj on-success values))
+                             (rf/dispatch (conj on-failure {:reason "no result"})))
+                 :error-handler #(rf/dispatch (conj on-failure %))})))
+
+(rf/reg-sub
+ :eli/generating-terms?
+ (fn [db _] (boolean (:generating-terms? db))))
+
+(rf/reg-sub
+ :eli/generating-personas?
+ (fn [db _] (boolean (:generating-personas? db))))
+
+;; No existing rows yet -> seed from the topic (generate-terms); otherwise
+;; extend the existing set (diversify-terms via the /diversify endpoint
+;; already used by diversify-row), per term-gen.md's "either initial or
+;; using diversify".
+(rf/reg-event-fx
+ :eli/generate-terms
+ (fn [{:keys [db]} _]
+   (let [existing (mapv :label (get-in db [:sheet :row-defs]))
+         n (get-in db [:sheet :term-count] 10)]
+     {:db (assoc db :generating-terms? true)
+      ::fetch-values (if (seq existing)
+                       {:url "/ks/diversify"
+                        :params {:labels (str/join "|" existing) :n n}
+                        :on-success [:eli/generate-terms-done]
+                        :on-failure [:eli/generate-terms-failed]}
+                       {:url "/ks/generate-terms"
+                        :params {:topic (get-in db [:sheet :topic]) :n n}
+                        :on-success [:eli/generate-terms-done]
+                        :on-failure [:eli/generate-terms-failed]})})))
+
+(rf/reg-event-db
+ :eli/generate-terms-done
+ (fn [db [_ labels]]
+   (-> (reduce add-row-with-label db labels)
+       (assoc :generating-terms? false))))
+
+(rf/reg-event-fx
+ :eli/generate-terms-failed
+ (fn [{:keys [db]} _]
+   {:db (assoc db :generating-terms? false)
+    :dispatch [:error "Couldn't generate terms -- try again"]}))
+
+(rf/reg-event-fx
+ :eli/generate-personas
+ (fn [{:keys [db]} _]
+   {:db (assoc db :generating-personas? true)
+    ::fetch-values {:url "/ks/generate-personas"
+                     :params {:topic (get-in db [:sheet :topic]) :n 3}
+                     :on-success [:eli/generate-personas-done]
+                     :on-failure [:eli/generate-personas-failed]}}))
+
+(rf/reg-event-db
+ :eli/generate-personas-done
+ (fn [db [_ labels]]
+   (-> (reduce add-col-with-label db labels)
+       (assoc :generating-personas? false))))
+
+(rf/reg-event-fx
+ :eli/generate-personas-failed
+ (fn [{:keys [db]} _]
+   {:db (assoc db :generating-personas? false)
+    :dispatch [:error "Couldn't generate personas -- try again"]}))

@@ -29,6 +29,19 @@
   [labels n]
   {:values (terms/diversify-terms (str/split labels #"\|") (or n 1))})
 
+(defn generate-terms-endpoint
+  "Seed n key terms for a topic from scratch (ellum.terms/generate-terms),
+  for when there's no existing set to diversify-endpoint extend yet.
+  Returns {:values [...]}."
+  [topic n]
+  {:values (terms/generate-terms topic (or n 10))})
+
+(defn generate-personas-endpoint
+  "Generate n personas spanning naive to expert knowledge of topic
+  (ellum.terms/generate-personas). Returns {:values [...]}."
+  [topic n]
+  {:values (terms/generate-personas topic (or n 3))})
+
 (defroutes site-routes)
 
 (defroutes api-routes
@@ -36,7 +49,11 @@
     (GET "/cell" [row-label col-label template provider model]
       (wh/content-response (cell-endpoint row-label col-label template provider model)))
     (GET "/diversify" [labels n]
-      (wh/content-response (diversify-endpoint labels (when-not (str/blank? n) (Integer/parseInt n)))))))
+      (wh/content-response (diversify-endpoint labels (when-not (str/blank? n) (Integer/parseInt n)))))
+    (GET "/generate-terms" [topic n]
+      (wh/content-response (generate-terms-endpoint topic (when-not (str/blank? n) (Integer/parseInt n)))))
+    (GET "/generate-personas" [topic n]
+      (wh/content-response (generate-personas-endpoint topic (when-not (str/blank? n) (Integer/parseInt n)))))))
 
 ;;; Warning: do not `(def app ...)` -- config isn't necessarily loaded yet at
 ;;; compile time (same caveat as okc/nlq-aact's handler.clj).

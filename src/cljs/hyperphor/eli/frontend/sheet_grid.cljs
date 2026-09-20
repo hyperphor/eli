@@ -31,6 +31,27 @@
     {:value template
      :on-change #(on-set-template (-> % .-target .-value))}]])
 
+(defn- topic-bar
+  "Topic-driven bulk generation: a free-text topic (eg \"Immunology\") plus
+  buttons that seed/extend rows and columns from it via ellum's
+  generate-terms/diversify-terms/generate-personas (design/term-gen.md)."
+  [{:keys [topic on-set-topic term-count on-set-term-count
+           on-generate-terms generating-terms?
+           on-generate-personas generating-personas?]}]
+  [:div.ks-topic-bar
+   [:input.ks-topic-input
+    {:type "text" :placeholder "Topic, e.g. Immunology"
+     :value topic :on-change #(on-set-topic (-> % .-target .-value))}]
+   [:input.ks-term-count-input
+    {:type "number" :min 1 :value term-count
+     :on-change #(on-set-term-count (js/parseInt (-> % .-target .-value)))}]
+   [:button {:on-click on-generate-terms :disabled generating-terms?
+             :title "Generate (or extend) key terms for this topic as rows"}
+    (if generating-terms? "…" "🧬 generate terms")]
+   [:button {:on-click on-generate-personas :disabled generating-personas?
+             :title "Generate personas spanning naive to expert as columns"}
+    (if generating-personas? "…" "🎭 generate personas")]])
+
 (defn grid
   "props: {:sheet {:row-defs :col-defs :cells :template}
            :on-row-label :on-col-label       [id label]
@@ -38,14 +59,24 @@
            :on-add-row :on-add-col :on-fill-all  []
            :on-diversify-row :on-diversify-col  []
            :diversifying-row? :diversifying-col?  bool
+           :topic :term-count  string/int (from sheet)
+           :on-set-topic :on-set-term-count  [val]
+           :on-generate-terms :on-generate-personas  []
+           :generating-terms? :generating-personas?  bool
            :on-remove-row :on-remove-col :on-fill-row :on-fill-col  [id]
            :on-fill-cell  [row-id col-id]}"
   [{:keys [sheet on-row-label on-col-label on-set-template on-add-row on-add-col
            on-diversify-row on-diversify-col diversifying-row? diversifying-col?
+           topic term-count on-set-topic on-set-term-count
+           on-generate-terms on-generate-personas generating-terms? generating-personas?
            on-remove-row on-remove-col on-fill-cell on-fill-row on-fill-col
            on-fill-all]}]
   (let [{:keys [row-defs col-defs cells template]} sheet]
     [:div.ks-grid
+     [topic-bar {:topic topic :on-set-topic on-set-topic
+                 :term-count term-count :on-set-term-count on-set-term-count
+                 :on-generate-terms on-generate-terms :generating-terms? generating-terms?
+                 :on-generate-personas on-generate-personas :generating-personas? generating-personas?}]
      [:div.ks-toolbar
       [:button {:on-click on-fill-all} "Fill all"]
       [:button {:on-click on-add-row} "+ row"]
