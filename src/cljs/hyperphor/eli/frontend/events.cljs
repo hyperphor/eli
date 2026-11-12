@@ -290,76 +290,36 @@
  :eli/generating-personas?
  (fn [db _] (boolean (:generating-personas? db))))
 
-;; No existing rows yet -> seed from the topic (generate-terms); otherwise
-;; extend the existing set (diversify-terms via the /diversify endpoint
-;; already used by diversify-row), per term-gen.md's "either initial or
-;; using diversify".
+;; With a topic -> terms for that topic, excluding existing rows; with no
+;; topic -> diversify-extend the existing rows.
 (rf/reg-event-fx
  :eli/generate-terms
  (fn [{:keys [db]} _]
    (let [existing (mapv :label (get-in db [:sheet :row-defs]))
+         topic (str/trim (get-in db [:sheet :topic] ""))
          n (get-in db [:sheet :term-count] 10)]
      {:db (assoc db :generating-terms? true)
-      ::fetch-values (if (seq existing)
-                       {:url "/ks/diversify"
-                        :params {:labels (str/join "|" existing) :n n}
-                        :on-success [:eli/generate-terms-done]
-                        :on-failure [:eli/generate-terms-failed]}
-                       {:url "/ks/generate-terms"
-                        :params {:topic (get-in db [:sheet :topic]) :n n}
-                        :on-success [:eli/generate-terms-done]
-                        :on-failure [:eli/generate-terms-failed]})})))
+      ::fetch-values (merge {:on-success [:eli/generate-terms-done]
+                             :on-failure [:eli/generate-terms-failed]}
+                            (if (str/blank? topic)
+                              {:url "/ks/diversify"
+                               :params {:labels (str/join "|" existing) :n n}}
+                              {:url "/ks/generate-terms"
+                               :params {:topic topic :n n
+                                        :existing (str/join "|" existing)}}))})))
 
 (rf/reg-event-db
  :eli/generate-terms-done
  (fn [db [_ labels]]
-   (-> (reduce add-row-with-label db labels)
-       (assoc :generating-terms? false))))
+   (let [existing (set (map (comp str/lower-case :label) (get-in db [:sheet :row-defs])))]
+     (-> (reduce add-row-with-label db (remove (comp existing str/lower-case) labels))
+         (assoc :generating-terms? false)))))
 
 (rf/reg-event-fx
  :eli/generate-terms-failed
  (fn [{:keys [db]} _]
    {:db (assoc db :generating-terms? false)
     :dispatch [:error "Couldn't generate terms -- try again"]}))
-
-(rf/reg-event-db
- :eli/set-row-prompt
- (fn [db [_ prompt]] (assoc-in db [:sheet :row-prompt] prompt)))
-
-(rf/reg-sub
- :eli/row-prompt
- (fn [db _] (get-in db [:sheet :row-prompt] "")))
-
-(rf/reg-sub
- :eli/generating-rows?
- (fn [db _] (boolean (:generating-rows? db))))
-
-;; Free-form prompt -> new rows, appended; uses the sheet's default model.
-(rf/reg-event-fx
- :eli/generate-rows
- (fn [{:keys [db]} _]
-   (let [prompt (str/trim (get-in db [:sheet :row-prompt] ""))
-         {:keys [provider model]} (get-in db [:sheet :default-model])]
-     (when-not (str/blank? prompt)
-       {:db (assoc db :generating-rows? true)
-        ::fetch-values {:url "/ks/generate-rows"
-                        :params {:prompt prompt
-                                 :provider (name (or provider :anthropic))
-                                 :model model}
-                        :on-success [:eli/generate-rows-done]
-                        :on-failure [:eli/generate-rows-failed]}}))))
-
-(rf/reg-event-db
- :eli/generate-rows-done
- (fn [db [_ labels]]
-   (-> (reduce add-row-with-label db labels)
-       (assoc :generating-rows? false))))
-
-(rf/reg-event-fx
- :eli/generate-rows-failed
- (fn [{:keys [db]} _]
-   {:db (assoc db :generating-rows? false)
-    :dispatch [:error "Couldn't generate rows -- try again"]}))
 
 (rf/reg-event-fx
  :eli/generate-personas

@@ -7,7 +7,7 @@
 (def eli-explainer
   "ELI's own persona-explainer demo: same term, explained to different audiences."
   {:title "ELI — persona explainer"
-   :template "Explain {{row}} in the context of {{topic}} to {{col}}."
+   :template "Explain {{row}} to {{col}} in the context of {{topic}}."
    :topic "cancer biology"
    :default-model {:provider :openai :model "gpt-4o"}
    :row-defs [{:id :r1 :label "KRAS oncogene"}
@@ -18,6 +18,15 @@
               {:id :c3 :label "a scientist in a different field" :icon "🧑‍🔬"}
               ]
    :cells {}})
+
+(def blank
+  "Explainer template with no rows or columns -- a starting point for
+  building a sheet from a topic or prompt."
+  (assoc eli-explainer
+         :title "Blank"
+         :topic ""
+         :row-defs []
+         :col-defs []))
 
 (def model-comparator
   "Same prompt, run across several models -- columns are models (via
@@ -69,6 +78,7 @@
   "Ordered [{:id :label :sheet}] registry backing the sheet chooser. First
   entry is the one :eli/init-sheet loads."
   [{:id :eli :label "ELI — persona explainer" :sheet eli-explainer}
+   {:id :blank :label "Blank" :sheet blank}
    {:id :model-comparator :label "Model / provider comparator" :sheet model-comparator}
    {:id :translations :label "Translations" :sheet translations}
    {:id :style-transfer :label "Style transfer" :sheet style-transfer}])

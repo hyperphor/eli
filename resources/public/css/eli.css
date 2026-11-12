@@ -139,13 +139,3 @@
   50%  { opacity: 1; }
   to   { opacity: 0.3; }
 }
-
-.ks-row-prompt-bar {
-  margin: 6px 0;
-}
-
-.ks-row-prompt-input {
-  width: 480px;
-  max-width: 70vw;
-  margin-right: 6px;
-}

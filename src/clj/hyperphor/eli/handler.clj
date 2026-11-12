@@ -30,24 +30,23 @@
   {:values (terms/diversify-terms (str/split labels #"\|") (or n 1))})
 
 (defn generate-terms-endpoint
-  "Seed n key terms for a topic from scratch (ellum.terms/generate-terms),
-  for when there's no existing set to diversify-endpoint extend yet.
+  "n key terms for topic, excluding the |-delimited existing labels if given.
   Returns {:values [...]}."
-  [topic n]
-  {:values (terms/generate-terms topic (or n 10))})
+  [topic n existing]
+  (let [n (or n 10)
+        existing (when-not (str/blank? existing) (str/split existing #"\|"))]
+    {:values (if existing
+               (compute/generate-labels
+                (str "Generate " n " important concepts from " topic
+                     " that are not already in this list: " (str/join ", " existing))
+                :openai "gpt-4o")
+               (terms/generate-terms topic n))}))
 
 (defn generate-personas-endpoint
   "Generate n personas spanning naive to expert knowledge of topic
   (ellum.terms/generate-personas). Returns {:values [...]}."
   [topic n]
   {:values (terms/generate-personas topic (or n 3))})
-
-(defn generate-rows-endpoint
-  "Generate row labels from a free-form prompt. Returns {:values [...]}."
-  [prompt provider model]
-  {:values (compute/generate-labels prompt
-                                    (keyword (if (str/blank? provider) "anthropic" provider))
-                                    (when-not (str/blank? model) model))})
 
 (defroutes site-routes)
 
@@ -57,10 +56,8 @@
       (wh/content-response (cell-endpoint row-label col-label topic template provider model)))
     (GET "/diversify" [labels n]
       (wh/content-response (diversify-endpoint labels (when-not (str/blank? n) (Integer/parseInt n)))))
-    (GET "/generate-terms" [topic n]
-      (wh/content-response (generate-terms-endpoint topic (when-not (str/blank? n) (Integer/parseInt n)))))
-    (GET "/generate-rows" [prompt provider model]
-      (wh/content-response (generate-rows-endpoint prompt provider model)))
+    (GET "/generate-terms" [topic n existing]
+      (wh/content-response (generate-terms-endpoint topic (when-not (str/blank? n) (Integer/parseInt n)) existing)))
     (GET "/generate-personas" [topic n]
       (wh/content-response (generate-personas-endpoint topic (when-not (str/blank? n) (Integer/parseInt n)))))))
 

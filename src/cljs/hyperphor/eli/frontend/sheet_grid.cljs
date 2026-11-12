@@ -69,21 +69,6 @@
              :title "Generate personas spanning naive to expert as columns"}
     (if generating-personas? "…" "🎭 generate personas")]])
 
-(defn- row-prompt-bar
-  "Free-form prompt whose LLM answer (a list) is appended as new rows."
-  [{:keys [row-prompt on-set-row-prompt on-generate-rows generating-rows?]}]
-  [:div.ks-row-prompt-bar
-   [:input.ks-row-prompt-input
-    {:type "text"
-     :placeholder "e.g. generate 10 key terms in semiconductor manufacturing"
-     :value row-prompt
-     :on-change #(on-set-row-prompt (-> % .-target .-value))
-     :on-key-down #(when (= "Enter" (.-key %)) (on-generate-rows))}]
-   [:button {:on-click on-generate-rows
-             :disabled (or generating-rows? (empty? (.trim row-prompt)))
-             :title "Run this prompt and add each result as a row"}
-    (if generating-rows? "…" "➕ rows from prompt")]])
-
 (defn grid
   "props: {:sheet {:row-defs :col-defs :cells :template :template-col-optional?}
            :on-row-label :on-col-label       [id label]
@@ -95,14 +80,12 @@
            :on-set-topic :on-set-term-count  [val]
            :on-generate-terms :on-generate-personas  []
            :generating-terms? :generating-personas?  bool
-           :row-prompt :on-set-row-prompt :on-generate-rows :generating-rows?
            :on-remove-row :on-remove-col :on-fill-row :on-fill-col  [id]
            :on-fill-cell  [row-id col-id]}"
   [{:keys [sheet on-row-label on-col-label on-set-template on-add-row on-add-col
            on-diversify-row on-diversify-col diversifying-row? diversifying-col?
            topic term-count on-set-topic on-set-term-count
            on-generate-terms on-generate-personas generating-terms? generating-personas?
-           row-prompt on-set-row-prompt on-generate-rows generating-rows?
            on-remove-row on-remove-col on-fill-cell on-fill-row on-fill-col
            on-fill-all]}]
   (let [{:keys [row-defs col-defs cells template]} sheet]
@@ -111,8 +94,6 @@
                  :term-count term-count :on-set-term-count on-set-term-count
                  :on-generate-terms on-generate-terms :generating-terms? generating-terms?
                  :on-generate-personas on-generate-personas :generating-personas? generating-personas?}]
-     [row-prompt-bar {:row-prompt row-prompt :on-set-row-prompt on-set-row-prompt
-                      :on-generate-rows on-generate-rows :generating-rows? generating-rows?}]
      [:div.ks-toolbar
       [:button {:on-click on-fill-all} "Fill all"]
       [:button {:on-click on-add-row} "+ row"]
