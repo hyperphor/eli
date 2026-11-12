@@ -18,10 +18,26 @@
       items)
     items))
 
+(defn- sheet-chooser
+  "Dropdown over sample-sheets.cljs's registry; confirms before switching
+  away from a sheet that has filled cells, since sheets aren't persisted."
+  [has-filled-cells?]
+  (let [current @(rf/subscribe [:eli/sample-id])]
+    [:select.ks-sheet-chooser
+     {:value (name current)
+      :on-change (fn [e]
+                   (let [id (keyword (-> e .-target .-value))]
+                     (when (or (not has-filled-cells?)
+                               (js/confirm "Switch sample sheets? This discards the current sheet."))
+                       (rf/dispatch [:eli/load-sheet id]))))}
+     (for [{:keys [id label]} @(rf/subscribe [:eli/sample-sheets])]
+       ^{:key id} [:option {:value (name id)} label])]))
+
 (defn site-header
-  []
+  [has-filled-cells?]
   [:div.site-hero
-   [:h2 "ELI — Explain Like I'm..."]])
+   [:h2 "ELI — Explain Like I'm..."]
+   [sheet-chooser has-filled-cells?]])
 
 (defn- not-done?
   "True unless cells already has a :done value for k -- bulk fills (row/col/
@@ -39,7 +55,7 @@
                                 :when (not-done? cells k)]
                             k))]
       [:div.eli-app
-       [site-header]
+       [site-header (some #(= :done (:status %)) (vals cells))]
        [grid/grid
         {:sheet sheet
          ;; dispatch-sync, not dispatch: :value is bound to app-db (a
@@ -47,8 +63,21 @@
          ;; re-renders or the caret jumps to the end on every keystroke.
          :on-row-label #(rf/dispatch-sync [:eli/set-row-label %1 %2])
          :on-col-label #(rf/dispatch-sync [:eli/set-col-label %1 %2])
+         :on-set-template #(rf/dispatch-sync [:eli/set-template %])
          :on-add-row #(rf/dispatch [:eli/add-row])
          :on-add-col #(rf/dispatch [:eli/add-col])
+         :on-diversify-row #(rf/dispatch [:eli/diversify-row])
+         :on-diversify-col #(rf/dispatch [:eli/diversify-col])
+         :diversifying-row? @(rf/subscribe [:eli/diversifying-row?])
+         :diversifying-col? @(rf/subscribe [:eli/diversifying-col?])
+         :topic @(rf/subscribe [:eli/topic])
+         :term-count @(rf/subscribe [:eli/term-count])
+         :on-set-topic #(rf/dispatch-sync [:eli/set-topic %])
+         :on-set-term-count #(rf/dispatch-sync [:eli/set-term-count %])
+         :on-generate-terms #(rf/dispatch [:eli/generate-terms])
+         :on-generate-personas #(rf/dispatch [:eli/generate-personas])
+         :generating-terms? @(rf/subscribe [:eli/generating-terms?])
+         :generating-personas? @(rf/subscribe [:eli/generating-personas?])
          :on-remove-row #(rf/dispatch [:eli/remove-row %])
          :on-remove-col #(rf/dispatch [:eli/remove-col %])
          ;; Explicit single-cell click: always (re)compute, even if :done.

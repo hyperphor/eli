@@ -3,36 +3,41 @@
   lives at db's :sheet key; :fill-queue/:in-flight drive a bounded-concurrency
   worker pool over the /api/ks/cell endpoint."
   (:require [re-frame.core :as rf]
+            [clojure.string :as str]
             [hyperphor.way.api :as api]
-            [hyperphor.eli.model :as model]))
+            [hyperphor.eli.frontend.sample-sheets :as samples]))
 
 ;; In-flight cap: keeps a "fill all" from firing R*C requests at once against
 ;; the provider's rate limit (design.md §6 step 2).
 (def max-concurrency 4)
 
-;;; TODO should probably be in config? Not here in any case
-(defn- default-sheet
-  "A small seed sheet -- ELI's own persona-explainer default (design.md §8's
-  persona-set idea, hardcoded here until templates/persona-sets exist)."
-  []
-  {:title "ELI"
-   :template model/default-template
-   :default-model {:provider :openai :model "gpt-4o"}
-   :row-defs [{:id :r1 :label "KRAS oncogene"}
-              {:id :r2 :label "sgRNA"}]
-   :col-defs [{:id :c1 :label "a five-year old" :icon "🧒"}
-              {:id :c2 :label "an intelligent layman" :icon "🧑"}]
-   :cells {}
-   :next-id 3})
+(def default-sample-id (:id (first samples/sheets)))
 
 (rf/reg-event-db
  :eli/init-sheet
  (fn [db _]
-   (assoc db :sheet (default-sheet))))
+   (-> db
+       (assoc :sheet (samples/by-id default-sample-id))
+       (assoc :sample-id default-sample-id))))
+
+(rf/reg-event-db
+ :eli/load-sheet
+ (fn [db [_ sample-id]]
+   (-> db
+       (assoc :sheet (samples/by-id sample-id))
+       (assoc :sample-id sample-id))))
 
 (rf/reg-sub
  :eli/sheet
  (fn [db _] (:sheet db)))
+
+(rf/reg-sub
+ :eli/sample-sheets
+ (fn [_ _] (mapv #(select-keys % [:id :label]) samples/sheets)))
+
+(rf/reg-sub
+ :eli/sample-id
+ (fn [db _] (:sample-id db)))
 
 ;;; ── Header editing ────────────────────────────────────────────────────────
 
@@ -62,21 +67,65 @@
        (update-in [:sheet :col-defs] relabel col-id label)
        (update-in [:sheet :cells] mark-stale 1 col-id))))
 
+(defn- mark-done-cells-stale
+  "Template changes affect every cell, but only :done ones have a value worth
+  re-marking :stale -- leaves already-:stale/:error/empty cells alone."
+  [cells]
+  (into {} (map (fn [[k cell]]
+                  [k (if (= :done (:status cell)) (assoc cell :status :stale) cell)]))
+        cells))
+
+(rf/reg-event-db
+ :eli/set-template
+ (fn [db [_ template]]
+   (-> db
+       (assoc-in [:sheet :template] template)
+       (update-in [:sheet :cells] mark-done-cells-stale))))
+
+(rf/reg-event-db
+ :eli/set-topic
+ (fn [db [_ topic]]
+   (cond-> (assoc-in db [:sheet :topic] topic)
+     (str/includes? (get-in db [:sheet :template] "") "{{topic}}")
+     (update-in [:sheet :cells] mark-done-cells-stale))))
+
+(rf/reg-sub
+ :eli/topic
+ (fn [db _] (get-in db [:sheet :topic] "")))
+
+(rf/reg-event-db
+ :eli/set-term-count
+ (fn [db [_ n]] (assoc-in db [:sheet :term-count] n)))
+
+(rf/reg-sub
+ :eli/term-count
+ (fn [db _] (get-in db [:sheet :term-count] 10)))
+
+(defn- fresh-id
+  "Next unused id like :r4 -- one past the highest numeric suffix among defs."
+  [prefix defs]
+  (let [n (->> defs
+               (keep #(parse-long (subs (name (:id %)) (count prefix))))
+               (reduce max 0))]
+    (keyword (str prefix (inc n)))))
+
+(defn- add-row-with-label
+  [db label]
+  (update-in db [:sheet :row-defs]
+             #(conj % {:id (fresh-id "r" %) :label label})))
+
+(defn- add-col-with-label
+  [db label]
+  (update-in db [:sheet :col-defs]
+             #(conj % {:id (fresh-id "c" %) :label label :icon "👤"})))
+
 (rf/reg-event-db
  :eli/add-row
- (fn [db _]
-   (let [id (keyword (str "r" (get-in db [:sheet :next-id])))]
-     (-> db
-         (update-in [:sheet :row-defs] conj {:id id :label "New term"})
-         (update-in [:sheet :next-id] inc)))))
+ (fn [db _] (add-row-with-label db "New term")))
 
 (rf/reg-event-db
  :eli/add-col
- (fn [db _]
-   (let [id (keyword (str "c" (get-in db [:sheet :next-id])))]
-     (-> db
-         (update-in [:sheet :col-defs] conj {:id id :label "New persona" :icon "👤"})
-         (update-in [:sheet :next-id] inc)))))
+ (fn [db _] (add-col-with-label db "New persona")))
 
 (rf/reg-event-db
  :eli/remove-row
@@ -137,6 +186,7 @@
      {:db (assoc-in db [:sheet :cells [row-id col-id]] {:status :pending})
       ::fetch-cell {:params {:row-label (:label row)
                               :col-label (:label col)
+                              :topic (:topic sheet)
                               :template (:template sheet)
                               :provider (name (or provider :anthropic))
                               :model model}
@@ -160,3 +210,134 @@
                        :error (or (get-in error [:response :error]) "request failed")})
             (update :in-flight (fnil dec 0)))
     :dispatch [:eli/pump]}))
+
+;;; ── Diversify (extend rows/cols with an LLM-suggested new one) ──────────────
+
+(rf/reg-fx
+ ::fetch-diversify
+ (fn [{:keys [labels n on-success on-failure]}]
+   (api/api-get "/ks/diversify"
+                {:params {:labels (str/join "|" labels) :n n}
+                 ;; diversify-terms returns nil when the LLM's response didn't
+                 ;; parse as JSON -- treat that as a failure, not a row/col
+                 ;; with a nil label.
+                 :handler #(if-let [label (first (:values %))]
+                             (rf/dispatch (conj on-success label))
+                             (rf/dispatch (conj on-failure {:reason "no result"})))
+                 :error-handler #(rf/dispatch (conj on-failure %))})))
+
+(rf/reg-sub
+ :eli/diversifying-row?
+ (fn [db _] (boolean (:diversifying-row? db))))
+
+(rf/reg-sub
+ :eli/diversifying-col?
+ (fn [db _] (boolean (:diversifying-col? db))))
+
+(rf/reg-event-fx
+ :eli/diversify-row
+ (fn [{:keys [db]} _]
+   {:db (assoc db :diversifying-row? true)
+    ::fetch-diversify {:labels (map :label (get-in db [:sheet :row-defs]))
+                        :n 1
+                        :on-success [:eli/diversify-row-done]
+                        :on-failure [:eli/diversify-failed :row]}}))
+
+(rf/reg-event-db
+ :eli/diversify-row-done
+ (fn [db [_ label]]
+   (-> db (add-row-with-label label) (assoc :diversifying-row? false))))
+
+(rf/reg-event-fx
+ :eli/diversify-col
+ (fn [{:keys [db]} _]
+   {:db (assoc db :diversifying-col? true)
+    ::fetch-diversify {:labels (map :label (get-in db [:sheet :col-defs]))
+                        :n 1
+                        :on-success [:eli/diversify-col-done]
+                        :on-failure [:eli/diversify-failed :col]}}))
+
+(rf/reg-event-db
+ :eli/diversify-col-done
+ (fn [db [_ label]]
+   (-> db (add-col-with-label label) (assoc :diversifying-col? false))))
+
+(rf/reg-event-fx
+ :eli/diversify-failed
+ (fn [{:keys [db]} [_ which _error]]
+   {:db (assoc db (if (= which :row) :diversifying-row? :diversifying-col?) false)
+    :dispatch [:error "Couldn't diversify -- try again"]}))
+
+;;; ── Topic-driven bulk generation (generate-terms/generate-personas) ─────────
+
+(rf/reg-fx
+ ::fetch-values
+ (fn [{:keys [url params on-success on-failure]}]
+   (api/api-get url
+                {:params params
+                 ;; Same "empty/unparseable LLM response is a failure" contract
+                 ;; as ::fetch-diversify, just over a whole vector of labels.
+                 :handler #(if-let [values (seq (:values %))]
+                             (rf/dispatch (conj on-success values))
+                             (rf/dispatch (conj on-failure {:reason "no result"})))
+                 :error-handler #(rf/dispatch (conj on-failure %))})))
+
+(rf/reg-sub
+ :eli/generating-terms?
+ (fn [db _] (boolean (:generating-terms? db))))
+
+(rf/reg-sub
+ :eli/generating-personas?
+ (fn [db _] (boolean (:generating-personas? db))))
+
+;; With a topic -> terms for that topic, excluding existing rows; with no
+;; topic -> diversify-extend the existing rows.
+(rf/reg-event-fx
+ :eli/generate-terms
+ (fn [{:keys [db]} _]
+   (let [existing (mapv :label (get-in db [:sheet :row-defs]))
+         topic (str/trim (get-in db [:sheet :topic] ""))
+         n (get-in db [:sheet :term-count] 10)]
+     {:db (assoc db :generating-terms? true)
+      ::fetch-values (merge {:on-success [:eli/generate-terms-done]
+                             :on-failure [:eli/generate-terms-failed]}
+                            (if (str/blank? topic)
+                              {:url "/ks/diversify"
+                               :params {:labels (str/join "|" existing) :n n}}
+                              {:url "/ks/generate-terms"
+                               :params {:topic topic :n n
+                                        :existing (str/join "|" existing)}}))})))
+
+(rf/reg-event-db
+ :eli/generate-terms-done
+ (fn [db [_ labels]]
+   (let [existing (set (map (comp str/lower-case :label) (get-in db [:sheet :row-defs])))]
+     (-> (reduce add-row-with-label db (remove (comp existing str/lower-case) labels))
+         (assoc :generating-terms? false)))))
+
+(rf/reg-event-fx
+ :eli/generate-terms-failed
+ (fn [{:keys [db]} _]
+   {:db (assoc db :generating-terms? false)
+    :dispatch [:error "Couldn't generate terms -- try again"]}))
+
+(rf/reg-event-fx
+ :eli/generate-personas
+ (fn [{:keys [db]} _]
+   {:db (assoc db :generating-personas? true)
+    ::fetch-values {:url "/ks/generate-personas"
+                     :params {:topic (get-in db [:sheet :topic]) :n 3}
+                     :on-success [:eli/generate-personas-done]
+                     :on-failure [:eli/generate-personas-failed]}}))
+
+(rf/reg-event-db
+ :eli/generate-personas-done
+ (fn [db [_ labels]]
+   (-> (reduce add-col-with-label db labels)
+       (assoc :generating-personas? false))))
+
+(rf/reg-event-fx
+ :eli/generate-personas-failed
+ (fn [{:keys [db]} _]
+   {:db (assoc db :generating-personas? false)
+    :dispatch [:error "Couldn't generate personas -- try again"]}))
