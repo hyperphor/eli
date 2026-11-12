@@ -98,19 +98,23 @@
  :eli/term-count
  (fn [db _] (get-in db [:sheet :term-count] 10)))
 
+(defn- fresh-id
+  "Next unused id like :r4 -- one past the highest numeric suffix among defs."
+  [prefix defs]
+  (let [n (->> defs
+               (keep #(parse-long (subs (name (:id %)) (count prefix))))
+               (reduce max 0))]
+    (keyword (str prefix (inc n)))))
+
 (defn- add-row-with-label
   [db label]
-  (let [id (keyword (str "r" (get-in db [:sheet :next-id])))]
-    (-> db
-        (update-in [:sheet :row-defs] conj {:id id :label label})
-        (update-in [:sheet :next-id] inc))))
+  (update-in db [:sheet :row-defs]
+             #(conj % {:id (fresh-id "r" %) :label label})))
 
 (defn- add-col-with-label
   [db label]
-  (let [id (keyword (str "c" (get-in db [:sheet :next-id])))]
-    (-> db
-        (update-in [:sheet :col-defs] conj {:id id :label label :icon "👤"})
-        (update-in [:sheet :next-id] inc))))
+  (update-in db [:sheet :col-defs]
+             #(conj % {:id (fresh-id "c" %) :label label :icon "👤"})))
 
 (rf/reg-event-db
  :eli/add-row

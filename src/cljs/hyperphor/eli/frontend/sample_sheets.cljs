@@ -11,11 +11,13 @@
    :template model/default-template
    :default-model {:provider :openai :model "gpt-4o"}
    :row-defs [{:id :r1 :label "KRAS oncogene"}
-              {:id :r2 :label "sgRNA"}]
+              {:id :r2 :label "sgRNA"}
+              {:id :r3 :label "tumor microenvironment"}]
    :col-defs [{:id :c1 :label "a five-year old" :icon "🧒"}
-              {:id :c2 :label "an intelligent layman" :icon "🧑"}]
-   :cells {}
-   :next-id 3})
+              {:id :c2 :label "a patient" :icon "🤑"}
+              {:id :c3 :label "a scientist in a different field" :icon "🧑‍🔬"}
+              ]
+   :cells {}})
 
 (def model-comparator
   "Same prompt, run across several models -- columns are models (via
@@ -34,8 +36,7 @@
                :model-override {:provider :openai :model "gpt-5.6-sol"}}
               {:id :c4 :label "GPT-5.4" :icon "🔵"
                :model-override {:provider :openai :model "gpt-5.4"}}]
-   :cells {}
-   :next-id 5})
+   :cells {}})
 
 (def translations
   "Same phrase translated into several languages -- a second demo of the
@@ -48,8 +49,7 @@
    :col-defs [{:id :c1 :label "French" :icon "🇫🇷"}
               {:id :c2 :label "Japanese" :icon "🇯🇵"}
               {:id :c3 :label "Swahili" :icon "🇰🇪"}]
-   :cells {}
-   :next-id 4})
+   :cells {}})
 
 (def style-transfer
   "Same text rewritten in different authors' styles -- columns are authors
@@ -62,8 +62,7 @@
    :col-defs [{:id :c1 :label "Cormac McCarthy" :icon "🤠"}
               {:id :c2 :label "Virginia Woolf" :icon "🌊"}
               {:id :c3 :label "Edgar Allan Poe" :icon "🐦‍⬛"}]
-   :cells {}
-   :next-id 4})
+   :cells {}})
 
 (def sheets
   "Ordered [{:id :label :sheet}] registry backing the sheet chooser. First
