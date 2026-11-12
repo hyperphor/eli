@@ -13,11 +13,11 @@
   "M1: no server-side sheet (design.md §6) -- the frontend sends the current
   in-memory row/col labels, template and provider/model directly; nothing here
   persists. Returns {:value <llm text>}."
-  [row-label col-label template provider model]
+  [row-label col-label topic template provider model]
   {:value (compute/compute-cell
            :llm
            {:prompt (model/render-template (if (str/blank? template) model/default-template template)
-                                            row-label col-label)
+                                            row-label col-label topic)
             :provider (keyword (if (str/blank? provider) "anthropic" provider))
             :model (when-not (str/blank? model) model)})})
 
@@ -42,16 +42,25 @@
   [topic n]
   {:values (terms/generate-personas topic (or n 3))})
 
+(defn generate-rows-endpoint
+  "Generate row labels from a free-form prompt. Returns {:values [...]}."
+  [prompt provider model]
+  {:values (compute/generate-labels prompt
+                                    (keyword (if (str/blank? provider) "anthropic" provider))
+                                    (when-not (str/blank? model) model))})
+
 (defroutes site-routes)
 
 (defroutes api-routes
   (context "/api/ks" []
-    (GET "/cell" [row-label col-label template provider model]
-      (wh/content-response (cell-endpoint row-label col-label template provider model)))
+    (GET "/cell" [row-label col-label topic template provider model]
+      (wh/content-response (cell-endpoint row-label col-label topic template provider model)))
     (GET "/diversify" [labels n]
       (wh/content-response (diversify-endpoint labels (when-not (str/blank? n) (Integer/parseInt n)))))
     (GET "/generate-terms" [topic n]
       (wh/content-response (generate-terms-endpoint topic (when-not (str/blank? n) (Integer/parseInt n)))))
+    (GET "/generate-rows" [prompt provider model]
+      (wh/content-response (generate-rows-endpoint prompt provider model)))
     (GET "/generate-personas" [topic n]
       (wh/content-response (generate-personas-endpoint topic (when-not (str/blank? n) (Integer/parseInt n)))))))
 

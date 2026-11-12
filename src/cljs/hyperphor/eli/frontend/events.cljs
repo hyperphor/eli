@@ -84,7 +84,10 @@
 
 (rf/reg-event-db
  :eli/set-topic
- (fn [db [_ topic]] (assoc-in db [:sheet :topic] topic)))
+ (fn [db [_ topic]]
+   (cond-> (assoc-in db [:sheet :topic] topic)
+     (str/includes? (get-in db [:sheet :template] "") "{{topic}}")
+     (update-in [:sheet :cells] mark-done-cells-stale))))
 
 (rf/reg-sub
  :eli/topic
@@ -183,6 +186,7 @@
      {:db (assoc-in db [:sheet :cells [row-id col-id]] {:status :pending})
       ::fetch-cell {:params {:row-label (:label row)
                               :col-label (:label col)
+                              :topic (:topic sheet)
                               :template (:template sheet)
                               :provider (name (or provider :anthropic))
                               :model model}
@@ -317,6 +321,45 @@
  (fn [{:keys [db]} _]
    {:db (assoc db :generating-terms? false)
     :dispatch [:error "Couldn't generate terms -- try again"]}))
+
+(rf/reg-event-db
+ :eli/set-row-prompt
+ (fn [db [_ prompt]] (assoc-in db [:sheet :row-prompt] prompt)))
+
+(rf/reg-sub
+ :eli/row-prompt
+ (fn [db _] (get-in db [:sheet :row-prompt] "")))
+
+(rf/reg-sub
+ :eli/generating-rows?
+ (fn [db _] (boolean (:generating-rows? db))))
+
+;; Free-form prompt -> new rows, appended; uses the sheet's default model.
+(rf/reg-event-fx
+ :eli/generate-rows
+ (fn [{:keys [db]} _]
+   (let [prompt (str/trim (get-in db [:sheet :row-prompt] ""))
+         {:keys [provider model]} (get-in db [:sheet :default-model])]
+     (when-not (str/blank? prompt)
+       {:db (assoc db :generating-rows? true)
+        ::fetch-values {:url "/ks/generate-rows"
+                        :params {:prompt prompt
+                                 :provider (name (or provider :anthropic))
+                                 :model model}
+                        :on-success [:eli/generate-rows-done]
+                        :on-failure [:eli/generate-rows-failed]}}))))
+
+(rf/reg-event-db
+ :eli/generate-rows-done
+ (fn [db [_ labels]]
+   (-> (reduce add-row-with-label db labels)
+       (assoc :generating-rows? false))))
+
+(rf/reg-event-fx
+ :eli/generate-rows-failed
+ (fn [{:keys [db]} _]
+   {:db (assoc db :generating-rows? false)
+    :dispatch [:error "Couldn't generate rows -- try again"]}))
 
 (rf/reg-event-fx
  :eli/generate-personas

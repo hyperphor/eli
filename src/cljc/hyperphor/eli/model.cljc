@@ -13,20 +13,21 @@
 
 (defn template-error
   "nil if template is usable, else a message: it must contain {{row}}, {{col}}
-  (unless col-optional?), and no other braces."
+  (unless col-optional?), may contain {{topic}}, and no other braces."
   [template col-optional?]
   (cond
     (not (str/includes? template "{{row}}")) "Template must include {{row}}"
     (and (not col-optional?) (not (str/includes? template "{{col}}")))
     "Template must include {{col}}"
-    (re-find #"[{}]" (str/replace template #"\{\{(row|col)\}\}" ""))
-    "Only {{row}} and {{col}} may use braces"))
+    (re-find #"[{}]" (str/replace template #"\{\{(row|col|topic)\}\}" ""))
+    "Only {{row}}, {{col}} and {{topic}} may use braces"))
 
 (defn render-template
-  "Substitute the current row/col labels into template's {{row}}/{{col}}
-  placeholders. Resolved at compute time, not stored with the cell."
-  [template row-label col-label]
+  "Substitute the current row/col labels and sheet topic into template's
+  {{row}}/{{col}}/{{topic}} placeholders. Resolved at compute time."
+  [template row-label col-label topic]
   ;; TODO ugh use u/tx
   (-> template
       (str/replace "{{row}}" (str row-label)) 
-      (str/replace "{{col}}" (str col-label))))
+      (str/replace "{{col}}" (str col-label))
+      (str/replace "{{topic}}" (str topic))))

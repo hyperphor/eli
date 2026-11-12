@@ -2,13 +2,13 @@
   "Pre-configured sheets a user can pick from instead of building one by hand
   in the UI (design/design.md §8's 'templates' idea, code-defined for now
   rather than edn resources). Each entry is a full sheet map per model.cljc's
-  shape; :cells is always empty -- filling happens after loading."
-  (:require [hyperphor.eli.model :as model]))
+  shape; :cells is always empty -- filling happens after loading.")
 
 (def eli-explainer
   "ELI's own persona-explainer demo: same term, explained to different audiences."
   {:title "ELI — persona explainer"
-   :template model/default-template
+   :template "Explain {{row}} in the context of {{topic}} to {{col}}."
+   :topic "cancer biology"
    :default-model {:provider :openai :model "gpt-4o"}
    :row-defs [{:id :r1 :label "KRAS oncogene"}
               {:id :r2 :label "sgRNA"}

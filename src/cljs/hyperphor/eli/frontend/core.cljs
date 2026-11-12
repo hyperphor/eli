@@ -78,6 +78,10 @@
          :on-generate-personas #(rf/dispatch [:eli/generate-personas])
          :generating-terms? @(rf/subscribe [:eli/generating-terms?])
          :generating-personas? @(rf/subscribe [:eli/generating-personas?])
+         :row-prompt @(rf/subscribe [:eli/row-prompt])
+         :on-set-row-prompt #(rf/dispatch-sync [:eli/set-row-prompt %])
+         :on-generate-rows #(rf/dispatch [:eli/generate-rows])
+         :generating-rows? @(rf/subscribe [:eli/generating-rows?])
          :on-remove-row #(rf/dispatch [:eli/remove-row %])
          :on-remove-col #(rf/dispatch [:eli/remove-col %])
          ;; Explicit single-cell click: always (re)compute, even if :done.
