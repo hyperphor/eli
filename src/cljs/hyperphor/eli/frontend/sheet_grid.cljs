@@ -4,7 +4,9 @@
   and callback fns as props, no direct re-frame dependency, so moving it into
   `way` later (per design.md §5/first-cut.md's reusability note) is a
   relocation, not a rewrite."
-  (:require [hyperphor.way.markdown :as md]))
+  (:require [reagent.core :as r]
+            [hyperphor.eli.model :as model]
+            [hyperphor.way.markdown :as md]))
 
 ;; Invoked as [cell-view cell on-click] (a hiccup element, not a plain call)
 ;; so `for`'s ^{:key ...} metadata -- attached to that literal vector, not to
@@ -24,12 +26,27 @@
   "Collapsed by default -- editing the template is an advanced move (it
   affects every cell at once) rather than a basic one, so it stays tucked
   under a <summary> instead of sitting next to the row/column buttons."
-  [template on-set-template]
-  [:details.ks-template-editor
-   [:summary "Template"]
-   [:textarea.ks-template-input
-    {:value template
-     :on-change #(on-set-template (-> % .-target .-value))}]])
+  []
+  ;; Edits go to a local draft, committed on blur only if model/template-error
+  ;; passes. :base is the template the draft started from, so a sheet switch
+  ;; discards a stale draft.
+  (let [draft (r/atom nil)]
+    (fn [template col-optional? on-set-template]
+      (let [{:keys [base text]} @draft
+            editing? (and text (= base template))
+            text (if editing? text template)
+            error (when editing? (model/template-error text col-optional?))]
+        [:details.ks-template-editor
+         [:summary "Template"]
+         [:textarea.ks-template-input
+          {:value text
+           :class (when error "ks-invalid")
+           :on-change #(reset! draft {:base template :text (-> % .-target .-value)})
+           :on-blur #(when (and editing? (not error))
+                       (when (not= text template) (on-set-template text))
+                       (reset! draft nil))}]
+         (when error
+           [:div.ks-template-error error " -- not applied."])]))))
 
 (defn- topic-bar
   "Topic-driven bulk generation: a free-text topic (eg \"Immunology\") plus
@@ -53,7 +70,7 @@
     (if generating-personas? "…" "🎭 generate personas")]])
 
 (defn grid
-  "props: {:sheet {:row-defs :col-defs :cells :template}
+  "props: {:sheet {:row-defs :col-defs :cells :template :template-col-optional?}
            :on-row-label :on-col-label       [id label]
            :on-set-template  [template]
            :on-add-row :on-add-col :on-fill-all  []
@@ -91,7 +108,7 @@
       [:button {:on-click on-diversify-col :disabled diversifying-col?
                 :title "Ask the LLM to suggest one more column like the existing ones"}
        (if diversifying-col? "…" "✨ diversify columns")]
-      [template-editor template on-set-template]]
+      [template-editor template (:template-col-optional? sheet) on-set-template]]
      [:table.ks-table
       [:thead
        [:tr

@@ -24,6 +24,7 @@
   :model-override) rather than personas, per design.md §8."
   {:title "Model / provider comparator"
    :template "{{row}}"
+   :template-col-optional? true
    :default-model {:provider :anthropic :model "claude-sonnet-5"}
    :row-defs [{:id :r1 :label "Write a haiku about recursion."}
               {:id :r2 :label "What's the capital of Mongolia, and one fact about it?"}
